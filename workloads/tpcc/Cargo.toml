@@ -1,0 +1,11 @@
+[package]
+name = "tpcc"
+version = "0.1.0"
+authors = ["Daniel Harrison <daniel.harrison@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+workload = { path = "../../workload" }
+
+[dev-dependencies]
+csv = "1.0"
