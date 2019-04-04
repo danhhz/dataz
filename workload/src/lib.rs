@@ -5,12 +5,12 @@ use serde::ser::SerializeTuple;
 
 pub struct GeneratorMeta {
   pub name: &'static str,
-  pub new: fn() -> Generator,
+  pub new: fn() -> Box<Generator>,
 }
 
-pub struct Generator {
-  pub meta: GeneratorMeta,
-  pub tables: fn() -> Vec<Table>,
+pub trait Generator {
+  fn meta(&self) -> GeneratorMeta;
+  fn tables(&self) -> Vec<Table>;
 }
 
 pub struct Table {

@@ -2,29 +2,31 @@
 
 use workload;
 
-pub fn new_meta() -> workload::GeneratorMeta {
-  return workload::GeneratorMeta {
-    name: "tpcc",
-    new: new,
-  };
+pub fn new() -> Box<workload::Generator> {
+  Box::new(TPCCGenerator { warehouses: 1 })
 }
 
-fn new() -> workload::Generator {
-  return workload::Generator {
-    meta: new_meta(),
-    tables: tables,
-  };
+pub struct TPCCGenerator {
+  warehouses: u64,
 }
 
-fn tables() -> Vec<workload::Table> {
-  let warehouse = workload::Table {
-    name: "warehouses",
-    data: workload::ColGenerator {
-      num_batches: 1,
-      batch: warehouse_batch,
-    },
-  };
-  vec![warehouse]
+impl workload::Generator for TPCCGenerator {
+  fn meta(&self) -> workload::GeneratorMeta {
+    workload::GeneratorMeta {
+      name: "tpcc",
+      new: new,
+    }
+  }
+  fn tables(&self) -> Vec<workload::Table> {
+    let warehouse = workload::Table {
+      name: "warehouses",
+      data: workload::ColGenerator {
+        num_batches: self.warehouses,
+        batch: warehouse_batch,
+      },
+    };
+    vec![warehouse]
+  }
 }
 
 fn warehouse_batch(batch_idx: u64) -> workload::Cols {
@@ -48,6 +50,7 @@ fn warehouse_batch(batch_idx: u64) -> workload::Cols {
 mod tests {
   use super::*;
   use csv;
+  use workload::Generator;
 
   fn wtr_as_string(wtr: csv::Writer<Vec<u8>>) -> String {
     String::from_utf8(wtr.into_inner().unwrap()).unwrap()
@@ -55,10 +58,9 @@ mod tests {
 
   #[test]
   fn test_tpcc() -> Result<(), Box<csv::Error>> {
-    let m = new_meta();
-    let g = (m.new)();
+    let g = TPCCGenerator { warehouses: 2 };
     let mut wtr = csv::Writer::from_writer(vec![]);
-    for t in (g.tables)() {
+    for t in g.tables() {
       let d = t.data;
       for idx in 0..d.num_batches {
         wtr.serialize((d.batch)(idx))?;
@@ -66,7 +68,7 @@ mod tests {
     }
     wtr.flush().unwrap();
     assert_eq!(
-      "0,name,street_1,street_2,city,state,zip,1,300000\n",
+      "0,name,street_1,street_2,city,state,zip,1,300000\n1,name,street_1,street_2,city,state,zip,1,300000\n",
       wtr_as_string(wtr)
     );
     Ok(())
