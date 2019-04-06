@@ -41,7 +41,7 @@ impl serde::Serialize for Cols {
       match col {
         Col::I64s(xs) => row.serialize_element(&xs[idx])?,
         Col::F64s(xs) => row.serialize_element(&xs[idx])?,
-        Col::Strings(xs) => row.serialize_element(xs[idx])?,
+        Col::Strings(xs) => row.serialize_element(&xs[idx])?,
       };
     }
     row.end()
@@ -51,5 +51,5 @@ impl serde::Serialize for Cols {
 pub enum Col {
   I64s(Vec<i64>),
   F64s(Vec<f64>),
-  Strings(Vec<&'static str>),
+  Strings(Vec<String>),
 }

@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 workload = { path = "../../workload" }
+rand = "0.6.5"
 
 [dev-dependencies]
 csv = "1.0"
