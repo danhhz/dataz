@@ -28,16 +28,23 @@ pub struct Cols {
   pub cols: Vec<Col>,
 }
 
-// TODO(dan): This serialization is row-oriented, name it like that.
-impl serde::Serialize for Cols {
+impl Cols {
+  pub fn as_rows(self) -> AsRows {
+    AsRows(self)
+  }
+}
+
+pub struct AsRows(Cols);
+
+impl serde::Serialize for AsRows {
   fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
   where
     S: serde::Serializer,
   {
     let idx = 0;
-    let mut row = s.serialize_tuple(self.cols.len())?;
+    let mut row = s.serialize_tuple(self.0.cols.len())?;
     // TODO(dan): Serialize all the rows.
-    for col in self.cols.iter() {
+    for col in self.0.cols.iter() {
       match col {
         Col::I64s(xs) => row.serialize_element(&xs[idx])?,
         Col::F64s(xs) => row.serialize_element(&xs[idx])?,

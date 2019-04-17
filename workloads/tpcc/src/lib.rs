@@ -115,7 +115,7 @@ mod tests {
     for t in g.tables() {
       let d = t.data;
       for idx in 0..d.num_batches {
-        wtr.serialize((d.batch)(idx))?;
+        wtr.serialize((d.batch)(idx).as_rows())?;
       }
     }
     wtr.flush().unwrap();
