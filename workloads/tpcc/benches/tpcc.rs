@@ -14,11 +14,7 @@ fn tpcc(b: &mut bencher::Bencher) {
       let d = t.data;
       for idx in 0..d.num_batches {
         for col in (d.batch)(idx).cols.iter() {
-          bytes += match col {
-            workload::Col::I64s(xs) => (xs.len() * 8) as u64,
-            workload::Col::F64s(xs) => (xs.len() * 8) as u64,
-            workload::Col::Strings(xs) => xs.iter().map(|x| x.len() as u64).sum(),
-          }
+          bytes += col.size()
         }
       }
     }

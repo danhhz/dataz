@@ -60,3 +60,13 @@ pub enum Col {
   F64s(Vec<f64>),
   Strings(Vec<String>),
 }
+
+impl Col {
+  pub fn size(&self) -> u64 {
+    match self {
+      Col::I64s(xs) => (xs.len() * 8) as u64,
+      Col::F64s(xs) => (xs.len() * 8) as u64,
+      Col::Strings(xs) => xs.iter().map(|x| x.len() as u64).sum(),
+    }
+  }
+}
