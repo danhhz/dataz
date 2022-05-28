@@ -4,14 +4,14 @@ version = "0.1.0"
 authors = ["Daniel Harrison <daniel.harrison@gmail.com>"]
 edition = "2018"
 
+[[bench]]
+name = "tpcc"
+harness = false
+
 [dependencies]
-workload = { path = "../../workload" }
+dataz = { path = "../../dataz" }
 rand = "0.6.5"
 
 [dev-dependencies]
 csv = "1.0"
 bencher = "0.1.5"
-
-[[bench]]
-name = "tpcc"
-harness = false

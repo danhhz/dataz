@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "workload",
-    "workloads/tpcc",
+    "dataz",
+    "impls/tpcc",
 ]
