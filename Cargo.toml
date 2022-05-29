@@ -1,0 +1,20 @@
+[package]
+name = "dataz"
+description = "High-throughput computational dataset synthesis"
+version = "0.1.0"
+readme = "README.md"
+authors = ["Daniel Harrison"]
+license = "Apache-2.0"
+repository = "https://github.com/danhhz/dataz"
+keywords = ["test", "data", "dataset", "generation", "synthesis"]
+categories = ["development-tools::testing"]
+edition = "2021"
+
+[features]
+default = ["serde"]
+
+[dependencies]
+serde = { version = "1", optional = true }
+
+[dev-dependencies]
+serde_json = "1"
