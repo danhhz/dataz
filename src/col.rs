@@ -41,7 +41,7 @@ pub trait Col<T: Data> {
 }
 
 macro_rules! data_primitive {
-    ($data:ident) => {
+    ( $data:ident ) => {
         impl Data for $data {
             type Ref<'a> = $data;
             type Col = Vec<$data>;
@@ -63,6 +63,8 @@ data_primitive!(i8);
 data_primitive!(i16);
 data_primitive!(i32);
 data_primitive!(i64);
+data_primitive!(f32);
+data_primitive!(f64);
 
 impl Data for String {
     type Ref<'a> = &'a str;
@@ -83,21 +85,29 @@ impl Data for Vec<u8> {
     type Col = (Vec<usize>, Vec<u8>);
 }
 
-// TODO: Macro for tuples up to size N
-impl<T1: Data, T2: Data> Data for (T1, T2) {
-    type Ref<'a> = (T1::Ref<'a>, T2::Ref<'a>);
-    type Col = (T1::Col, T2::Col);
+macro_rules! data_tuple {
+    ( $($data:ident)+ ) => (
+        impl<$($data: Data),*> Data for ($($data,)*) {
+            type Ref<'a> = ($($data::Ref<'a>),*);
+            type Col = ($($data::Col),*);
+        }
+    );
 }
 
-impl<T1: Data, T2: Data, T3: Data> Data for (T1, T2, T3) {
-    type Ref<'a> = (T1::Ref<'a>, T2::Ref<'a>, T3::Ref<'a>);
-    type Col = (T1::Col, T2::Col, T3::Col);
-}
-
-impl<T1: Data, T2: Data, T3: Data, T4: Data> Data for (T1, T2, T3, T4) {
-    type Ref<'a> = (T1::Ref<'a>, T2::Ref<'a>, T3::Ref<'a>, T4::Ref<'a>);
-    type Col = (T1::Col, T2::Col, T3::Col, T4::Col);
-}
+data_tuple! { T0 T1 T2 }
+data_tuple! { T0 T1 T2 T3 }
+data_tuple! { T0 T1 T2 T3 T4 }
+data_tuple! { T0 T1 T2 T3 T4 T5 }
+data_tuple! { T0 T1 T2 T3 T4 T5 T6 }
+data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 }
+data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 }
+data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 }
+data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA }
+data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB }
+// data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC }
+// data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC TD }
+// data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC TD TE }
+// data_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC TD TE TF }
 
 impl Col<()> for usize {
     fn len(&self) -> usize {
@@ -126,7 +136,7 @@ impl Col<()> for usize {
 }
 
 macro_rules! col_primitive {
-    ($data:ident) => {
+    ( $data:ident ) => {
         impl Col<$data> for Vec<$data> {
             fn len(&self) -> usize {
                 self.len()
@@ -160,6 +170,8 @@ col_primitive!(i8);
 col_primitive!(i16);
 col_primitive!(i32);
 col_primitive!(i64);
+col_primitive!(f32);
+col_primitive!(f64);
 
 impl<T: Data, C: Col<T>> Col<Option<T>> for (Vec<bool>, C)
 where
@@ -270,113 +282,66 @@ impl Col<Vec<u8>> for (Vec<usize>, Vec<u8>) {
     }
 }
 
-impl<T1: Data, T2: Data, C1: Col<T1>, C2: Col<T2>> Col<(T1, T2)> for (C1, C2) {
-    fn len(&self) -> usize {
-        let (c1, c2) = self;
-        debug_assert_eq!(c1.len(), c2.len());
-        c1.len()
-    }
+macro_rules! col_tuple {
+    ( $( $data:ident )* ; $( $col:ident )* ) => {
+        #[allow(non_snake_case)]
+        impl<$($data: Data),+, $($col: Col<$data>),+> Col<($($data),+)> for ($($col),+) {
+            #[allow(unused_assignments)]
+            fn len(&self) -> usize {
+                let ($($col),+) = self;
+                let mut ret = 0;
+                $(
+                    ret = $col.len();
+                )+
+                $(
+                    debug_assert_eq!($col.len(), ret);
+                )+
+                ret
+            }
 
-    fn get<'a>(&'a self, idx: usize) -> <(T1, T2) as Data>::Ref<'a> {
-        let (c1, c2) = self;
-        debug_assert_eq!(c1.len(), c2.len());
-        (c1.get(idx), c2.get(idx))
-    }
+            fn get<'a>(&'a self, idx: usize) -> <($($data),*) as Data>::Ref<'a> {
+                let ($($col),+) = self;
+                ($($col.get(idx)),+)
+            }
 
-    fn push(&mut self, t: <(T1, T2) as Data>::Ref<'_>) {
-        let (c1, c2) = self;
-        let (t1, t2) = t;
-        c1.push(t1);
-        c2.push(t2);
-        debug_assert_eq!(c1.len(), c2.len());
-    }
+            fn push(&mut self, t: <($($data),*) as Data>::Ref<'_>) {
+                let ($($col),+) = self;
+                let ($($data),+) = t;
+                $(
+                    $col.push($data);
+                )+
+            }
 
-    fn clear(&mut self) {
-        let (c1, c2) = self;
-        c1.clear();
-        c2.clear();
-    }
+            fn clear(&mut self) {
+                let ($($col),+) = self;
+                $(
+                    $col.clear();
+                )+
+            }
 
-    fn good_bytes(&self) -> usize {
-        let (c1, c2) = self;
-        c1.good_bytes() + c2.good_bytes()
-    }
+            fn good_bytes(&self) -> usize {
+                let ($($col),+) = self;
+                let mut ret = 0;
+                $(
+                    ret += $col.good_bytes();
+                )+
+                ret
+            }
+        }
+    };
 }
 
-impl<T1: Data, T2: Data, T3: Data, C1: Col<T1>, C2: Col<T2>, C3: Col<T3>> Col<(T1, T2, T3)>
-    for (C1, C2, C3)
-{
-    fn len(&self) -> usize {
-        let (c1, _, _) = self;
-        c1.len()
-    }
-
-    fn get<'a>(&'a self, idx: usize) -> <(T1, T2, T3) as Data>::Ref<'a> {
-        let (c1, c2, c3) = self;
-        (c1.get(idx), c2.get(idx), c3.get(idx))
-    }
-
-    fn push(&mut self, t: <(T1, T2, T3) as Data>::Ref<'_>) {
-        let (c1, c2, c3) = self;
-        let (t1, t2, t3) = t;
-        c1.push(t1);
-        c2.push(t2);
-        c3.push(t3);
-    }
-
-    fn clear(&mut self) {
-        let (c1, c2, c3) = self;
-        c1.clear();
-        c2.clear();
-        c3.clear();
-    }
-
-    fn good_bytes(&self) -> usize {
-        let (c1, c2, c3) = self;
-        c1.good_bytes() + c2.good_bytes() + c3.good_bytes()
-    }
-}
-
-impl<
-        T1: Data,
-        T2: Data,
-        T3: Data,
-        T4: Data,
-        C1: Col<T1>,
-        C2: Col<T2>,
-        C3: Col<T3>,
-        C4: Col<T4>,
-    > Col<(T1, T2, T3, T4)> for (C1, C2, C3, C4)
-{
-    fn len(&self) -> usize {
-        let (c1, _, _, _) = self;
-        c1.len()
-    }
-
-    fn get<'a>(&'a self, idx: usize) -> <(T1, T2, T3, T4) as Data>::Ref<'a> {
-        let (c1, c2, c3, c4) = self;
-        (c1.get(idx), c2.get(idx), c3.get(idx), c4.get(idx))
-    }
-
-    fn push(&mut self, t: <(T1, T2, T3, T4) as Data>::Ref<'_>) {
-        let (c1, c2, c3, c4) = self;
-        let (t1, t2, t3, t4) = t;
-        c1.push(t1);
-        c2.push(t2);
-        c3.push(t3);
-        c4.push(t4);
-    }
-
-    fn clear(&mut self) {
-        let (c1, c2, c3, c4) = self;
-        c1.clear();
-        c2.clear();
-        c3.clear();
-        c4.clear();
-    }
-
-    fn good_bytes(&self) -> usize {
-        let (c1, c2, c3, c4) = self;
-        c1.good_bytes() + c2.good_bytes() + c3.good_bytes() + c4.good_bytes()
-    }
-}
+col_tuple! { T0 T1 T2; C0 C1 C2 }
+col_tuple! { T0 T1 T2 T3; C0 C1 C2 C3 }
+col_tuple! { T0 T1 T2 T3 T4; C0 C1 C2 C3 C4 }
+col_tuple! { T0 T1 T2 T3 T4 T5; C0 C1 C2 C3 C4 C5 }
+col_tuple! { T0 T1 T2 T3 T4 T5 T6; C0 C1 C2 C3 C4 C5 C6 }
+col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7; C0 C1 C2 C3 C4 C5 C6 C7 }
+col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8; C0 C1 C2 C3 C4 C5 C6 C7 C8 }
+col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 }
+col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA }
+col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA CB }
+// col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA CB CC }
+// col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC TD; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA CB CC CD }
+// col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC TD TE; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA CB CC CD CE }
+// col_tuple! { T0 T1 T2 T3 T4 T5 T6 T7 T8 T9 TA TB TC TD TE TF; C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 CA CB CC CD CE CF }

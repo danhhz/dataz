@@ -9,9 +9,9 @@ use crate::Table;
 
 /// Row-oriented serialization of a [Table]'s data.
 #[derive(Debug)]
-pub struct Rows<T>(pub T);
+pub struct Rows<'t, T>(pub &'t T);
 
-impl<T> serde::Serialize for Rows<T>
+impl<T> serde::Serialize for Rows<'_, T>
 where
     T: Table,
     for<'a> <<T as Table>::Data as Data>::Ref<'a>: serde::Serialize,
@@ -21,11 +21,13 @@ where
         S: serde::Serializer,
     {
         let Rows(table) = self;
+        let mut table = (*table).clone();
         let mut batch = <T::Data as Data>::Col::default();
 
         let mut seq = serializer.serialize_seq(None)?;
         for batch_idx in 0..table.num_batches() {
-            self.0.gen_batch(batch_idx, &mut batch);
+            batch.clear();
+            table.gen_batch(batch_idx, &mut batch);
             for idx in 0..batch.len() {
                 seq.serialize_element(&batch.get(idx))?;
             }
@@ -49,7 +51,7 @@ mod tests {
             max_rows_per_batch: 3,
         });
 
-        let actual = serde_json::to_string(&Rows(table)).unwrap();
+        let actual = serde_json::to_string(&Rows(&table)).unwrap();
         const EXPECTED: &str = "[\
 [\"0000000000000000\",[197,153,189,113],0,1],\
 [\"0000000000000001\",[138,50,122,226],1,1],\
