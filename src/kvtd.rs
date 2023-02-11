@@ -4,7 +4,8 @@
 //!
 //! [Differential Dataflow]: https://crates.io/crates/differential-dataflow
 
-use crate::{Set, Table};
+use crate::col::Col;
+use crate::{DynTable, Set, Table};
 
 /// Configuration for [Kvtd].
 #[derive(Debug)]
@@ -17,7 +18,7 @@ pub struct KvtdConfig {
     pub max_rows_per_batch: usize,
 }
 
-/// `(Key, Value, Time, Diff)` tuples a la [Differential Dataflow]
+/// `(Key, Val, Time, Diff)` tuples a la [Differential Dataflow]
 ///
 /// [Differential Dataflow]: https://crates.io/crates/differential-dataflow
 #[derive(Debug)]
@@ -33,66 +34,55 @@ impl Set for Kvtd {
     fn init(config: Self::Config) -> Self {
         Kvtd { config }
     }
+
+    fn tables(&self) -> Vec<&dyn DynTable> {
+        vec![self]
+    }
 }
 
-impl Table for Kvtd {
-    type Batch = KvtdBatch;
+impl DynTable for Kvtd {
+    fn name(&self) -> &'static str {
+        "kvtd"
+    }
 
     fn num_batches(&self) -> usize {
         (self.config.num_rows + self.config.max_rows_per_batch - 1) / self.config.max_rows_per_batch
     }
+}
 
-    fn gen_batch(&self, idx: usize, batch: &mut KvtdBatch) {
+impl Table for Kvtd {
+    type Data = (String, Vec<u8>, u64, i64);
+
+    fn gen_batch<C: Col<Self::Data>>(&self, idx: usize, batch: &mut C) {
+        batch.clear();
+
         let row_start = idx * self.config.max_rows_per_batch;
         let row_end = std::cmp::min(
             row_start + self.config.max_rows_per_batch,
             self.config.num_rows,
         );
-        batch.len = row_end.saturating_sub(row_start);
-        batch.val_bytes = self.config.val_bytes;
-        if batch.len == 0 {
+        let len = row_end.saturating_sub(row_start);
+        if len == 0 {
             return;
         }
 
-        gen_keys(&mut batch.keys, row_start, batch.len);
-        gen_vals(&mut batch.vals, row_start, batch.len, self.config.val_bytes);
-        gen_times(&mut batch.times, row_start, batch.len);
-        gen_diffs(&mut batch.diffs, batch.len);
-    }
-}
+        let mut key_buf = String::with_capacity(KEY_BYTES);
+        let mut val_buf = Vec::with_capacity(self.config.val_bytes);
+        for idx in 0..len {
+            key_buf.clear();
+            val_buf.clear();
 
-/// A batch of [Kvtd] data.
-#[derive(Debug, Default)]
-pub struct KvtdBatch {
-    len: usize,
-    val_bytes: usize,
-
-    keys: String,
-    vals: Vec<u8>,
-    times: Vec<u64>,
-    diffs: Vec<i64>,
-}
-
-impl KvtdBatch {
-    /// Returns the number of rows in this batch.
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Returns the requested row.
-    pub fn get(&self, idx: usize) -> Option<(&str, &[u8], u64, i64)> {
-        if idx >= self.len {
-            return None;
+            to_hex(&mut key_buf, idx);
+            gen_vals(&mut val_buf, idx, 1, self.config.val_bytes);
+            let ts = idx as u64;
+            let diff = 1;
+            batch.push((key_buf.as_str(), val_buf.as_slice(), ts, diff));
         }
-        let key = &self.keys[idx * KEY_BYTES..(idx + 1) * KEY_BYTES];
-        let val = &self.vals[idx * self.val_bytes..(idx + 1) * self.val_bytes];
-        let time = self.times[idx];
-        let diff = self.diffs[idx];
-        Some((key, val, time, diff))
     }
 }
 
 const KEY_BYTES: usize = 64 / 4;
+#[allow(dead_code)]
 fn gen_keys(col: &mut String, start: usize, len: usize) {
     col.clear();
     col.reserve(len * KEY_BYTES);
@@ -101,17 +91,17 @@ fn gen_keys(col: &mut String, start: usize, len: usize) {
     }
 }
 
-fn gen_vals(col: &mut Vec<u8>, start: usize, len: usize, val_len: usize) {
+fn gen_vals(col: &mut Vec<u8>, start: usize, len: usize, val_bytes: usize) {
     col.clear();
-    col.reserve(len * val_len);
+    col.reserve(len * val_bytes);
 
     const LARGE_PRIME: usize = 18_446_744_073_709_551_557;
     for idx in start..start + len {
-        // Generate val_len bytes using Knuth's multiplicative integer hashing
+        // Generate val_bytes bytes using Knuth's multiplicative integer hashing
         // method, seeded with the row_idx (plus one so that we don't start with
         // all zeros for idx 0).
         let mut x = idx + 1;
-        for _ in 0..val_len {
+        for _ in 0..val_bytes {
             x = x.wrapping_mul(LARGE_PRIME);
             // TODO: Do this 8 bytes at a time instead.
             col.push(x as u8);
@@ -119,6 +109,7 @@ fn gen_vals(col: &mut Vec<u8>, start: usize, len: usize, val_len: usize) {
     }
 }
 
+#[allow(dead_code)]
 fn gen_times(col: &mut Vec<u64>, start: usize, len: usize) {
     col.clear();
     col.reserve(len);
@@ -127,6 +118,7 @@ fn gen_times(col: &mut Vec<u64>, start: usize, len: usize) {
     }
 }
 
+#[allow(dead_code)]
 fn gen_diffs(col: &mut Vec<i64>, len: usize) {
     col.clear();
     col.resize(len, 1i64);
