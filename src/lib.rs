@@ -4,6 +4,7 @@
 
 #![warn(missing_docs, missing_debug_implementations)]
 
+pub mod col;
 pub mod kvtd;
 
 #[cfg(feature = "serde")]
