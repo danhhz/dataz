@@ -1,4 +1,4 @@
 dataz
 =====
 
-High-throughput computational dataset synthesis
+High-throughput generative datasets
