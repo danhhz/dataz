@@ -35,6 +35,9 @@ pub trait Col<T: Data> {
 
     /// Clears all values from the column, leaving any allocations to be reused.
     fn clear(&mut self);
+
+    /// Returns the size of the data in this column.
+    fn good_bytes(&self) -> usize;
 }
 
 macro_rules! data_primitive {
@@ -116,6 +119,10 @@ impl Col<()> for usize {
     fn clear(&mut self) {
         *self = 0;
     }
+
+    fn good_bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+    }
 }
 
 macro_rules! col_primitive {
@@ -135,6 +142,10 @@ macro_rules! col_primitive {
 
             fn clear(&mut self) {
                 self.clear();
+            }
+
+            fn good_bytes(&self) -> usize {
+                self.len() * std::mem::size_of::<$data>()
             }
         }
     };
@@ -190,6 +201,11 @@ where
         set.clear();
         values.clear();
     }
+
+    fn good_bytes(&self) -> usize {
+        let (set, values) = self;
+        set.len() * std::mem::size_of::<bool>() + values.good_bytes()
+    }
 }
 
 impl Col<String> for (Vec<usize>, String) {
@@ -216,6 +232,11 @@ impl Col<String> for (Vec<usize>, String) {
         lens.clear();
         concat.clear();
     }
+
+    fn good_bytes(&self) -> usize {
+        let (lens, concat) = self;
+        lens.len() * std::mem::size_of::<usize>() + concat.len()
+    }
 }
 
 impl Col<Vec<u8>> for (Vec<usize>, Vec<u8>) {
@@ -241,6 +262,11 @@ impl Col<Vec<u8>> for (Vec<usize>, Vec<u8>) {
         let (lens, concat) = self;
         lens.clear();
         concat.clear();
+    }
+
+    fn good_bytes(&self) -> usize {
+        let (lens, concat) = self;
+        lens.len() * std::mem::size_of::<usize>() + concat.len()
     }
 }
 
@@ -270,6 +296,11 @@ impl<T1: Data, T2: Data, C1: Col<T1>, C2: Col<T2>> Col<(T1, T2)> for (C1, C2) {
         c1.clear();
         c2.clear();
     }
+
+    fn good_bytes(&self) -> usize {
+        let (c1, c2) = self;
+        c1.good_bytes() + c2.good_bytes()
+    }
 }
 
 impl<T1: Data, T2: Data, T3: Data, C1: Col<T1>, C2: Col<T2>, C3: Col<T3>> Col<(T1, T2, T3)>
@@ -298,6 +329,11 @@ impl<T1: Data, T2: Data, T3: Data, C1: Col<T1>, C2: Col<T2>, C3: Col<T3>> Col<(T
         c1.clear();
         c2.clear();
         c3.clear();
+    }
+
+    fn good_bytes(&self) -> usize {
+        let (c1, c2, c3) = self;
+        c1.good_bytes() + c2.good_bytes() + c3.good_bytes()
     }
 }
 
@@ -337,5 +373,10 @@ impl<
         c2.clear();
         c3.clear();
         c4.clear();
+    }
+
+    fn good_bytes(&self) -> usize {
+        let (c1, c2, c3, c4) = self;
+        c1.good_bytes() + c2.good_bytes() + c3.good_bytes() + c4.good_bytes()
     }
 }
