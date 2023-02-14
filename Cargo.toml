@@ -1,3 +1,5 @@
+# Copyright 2023 Daniel Harrison. All Rights Reserved.
+
 [package]
 name = "dataz"
 description = "High-throughput generative datasets"
@@ -9,11 +11,23 @@ repository = "https://github.com/danhhz/dataz"
 keywords = ["test", "data", "dataset", "generation"]
 categories = ["development-tools::testing"]
 edition = "2021"
+autobenches = false
+
+# Disable the ability to use benches in the library because the bench harness
+# isn't override-able there and the stock one prevents using Criterion specific
+# flags, e.g. `cargo bench -p persist -- --baseline=foo`.
+[lib]
+bench = false
 
 [features]
+
+[[bench]]
+name = "benches"
+harness = false
 
 [dependencies]
 serde = { version = "1", optional = true }
 
 [dev-dependencies]
+criterion = "0.4.0"
 serde_json = "1"
