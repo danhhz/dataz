@@ -29,6 +29,8 @@ fn kvtd(c: &mut Criterion) {
             for idx in 0..table.num_batches() {
                 table.gen_batch(idx, &mut batch);
                 black_box(&mut batch);
+                table.gen_batch(idx, &mut batch);
+                black_box(&mut batch);
             }
         })
     });
