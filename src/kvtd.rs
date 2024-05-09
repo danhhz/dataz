@@ -5,10 +5,10 @@
 //! [Differential Dataflow]: https://crates.io/crates/differential-dataflow
 
 use crate::col::Col;
-use crate::{DynTable, Set, Table};
+use crate::{DynTable, Set, Table, TableFnMut};
 
 /// Configuration for [Kvtd].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KvtdConfig {
     /// The number of bytes in the val column of each row.
     pub val_bytes: usize,
@@ -21,9 +21,9 @@ pub struct KvtdConfig {
 /// `(Key, Val, Time, Diff)` tuples a la [Differential Dataflow]
 ///
 /// [Differential Dataflow]: https://crates.io/crates/differential-dataflow
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Kvtd {
-    pub(crate) config: KvtdConfig,
+    config: KvtdConfig,
 }
 
 impl Kvtd {}
@@ -35,8 +35,8 @@ impl Set for Kvtd {
         Kvtd { config }
     }
 
-    fn tables(&self) -> Vec<&dyn DynTable> {
-        vec![self]
+    fn tables<F: TableFnMut<()>>(&self, f: &mut F) {
+        f.call_mut(self.clone());
     }
 }
 
@@ -53,9 +53,7 @@ impl DynTable for Kvtd {
 impl Table for Kvtd {
     type Data = (String, Vec<u8>, u64, i64);
 
-    fn gen_batch<C: Col<Self::Data>>(&self, idx: usize, batch: &mut C) {
-        batch.clear();
-
+    fn gen_batch<C: Col<Self::Data>>(&mut self, idx: usize, batch: &mut C) {
         let row_start = idx * self.config.max_rows_per_batch;
         let row_end = std::cmp::min(
             row_start + self.config.max_rows_per_batch,
