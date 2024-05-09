@@ -2,7 +2,7 @@
 
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use codspeed_criterion_compat::{criterion_group, criterion_main, Criterion, Throughput};
 use dataz::col::{Col, Data};
 use dataz::kvtd::{Kvtd, KvtdConfig};
 use dataz::{DynTable, Set, Table};
